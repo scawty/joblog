@@ -1,19 +1,19 @@
 package main
 
 import (
-        "context"
-        "encoding/json"
-        "fmt"
-        "log"
-        "net/http"
-        "os"
-        "encoding/base64"
+	"context"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"time"
 
-        "golang.org/x/oauth2"
-        "golang.org/x/oauth2/google"
-        "google.golang.org/api/gmail/v1"
-        "google.golang.org/api/option"
-
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
+	"google.golang.org/api/gmail/v1"
+	"google.golang.org/api/option"
 )
 
 // Retrieve a token, saves the token, then returns the generated client.
@@ -99,7 +99,9 @@ func main() {
         }
         
         // get all messages that match the given query
-        const query string = "subject:Thank you for applying"
+        currTime := time.Now()
+        date := fmt.Sprintf("%d/%d/%d", currTime.Year(), currTime.Month(), currTime.Day() - 1)
+        query := fmt.Sprintf("subject:(Thank you for applying) AND after:%s", date)
 
         user := "me"
         r, err := srv.Users.Messages.List(user).Q(query).Do()
