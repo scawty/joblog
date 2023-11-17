@@ -16,6 +16,8 @@ import (
 	"google.golang.org/api/option"
 
         "github.com/pebbe/zmq4"
+        "github.com/mehanizm/airtable"
+        "github.com/joho/godotenv"
 
 )
 
@@ -82,7 +84,12 @@ type Email struct {
         From string `json:"from"` 
 }
 
-func main() {
+func main() {      
+        err := godotenv.Load()
+        if err != nil {
+                log.Fatal("Error loading .env file")
+        }
+
         ctx := context.Background()
         b, err := os.ReadFile("credentials.json")
         if err != nil {
@@ -160,6 +167,10 @@ func main() {
         socket, _ := context.NewSocket(zmq4.REQ)
 
         socket.Connect("tcp://127.0.0.1:5555")
+        
+        airtableClient := airtable.NewClient(os.Getenv("AIRTABLE_TOKEN"))
+        table := airtableClient.GetTable(os.Getenv("AIRTABLE_DB"), "Test")
+        
        
         for _, email := range emails {
                 jmail, _ := json.Marshal(email)
@@ -171,6 +182,21 @@ func main() {
                 json.Unmarshal(replyBytes[0], &reply)
 
                 fmt.Println("received reply: ", reply)
+
+                recordToSend := &airtable.Records{
+                        Records: []*airtable.Record{
+                                {
+                                        Fields: map[string]any{
+                                                "Company":reply["company"],
+                                                "Status":"Applied",
+                                        },
+                                },
+                        },
+                }
+                _, err := table.AddRecords(recordToSend)
+                if err != nil {
+                        log.Fatalf("Error adding record: %v", err)
+                }
         }
         
         socket.Close()
