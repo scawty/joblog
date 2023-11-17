@@ -8,12 +8,15 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"time"
+	// "time"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/gmail/v1"
 	"google.golang.org/api/option"
+
+        "github.com/pebbe/zmq4"
+
 )
 
 // Retrieve a token, saves the token, then returns the generated client.
@@ -72,11 +75,11 @@ func saveToken(path string, token *oauth2.Token) {
 }
 
 type Email struct {
-        Date int64
-        Id string
-        Body string
-        Subject string
-        From string
+        Date int64 `json:"date"` 
+        Id string  `json:"id"` 
+        Body string `json:"body"` 
+        Subject string `json:"subject"` 
+        From string `json:"from"` 
 }
 
 func main() {
@@ -99,9 +102,9 @@ func main() {
         }
         
         // get all messages that match the given query
-        currTime := time.Now()
-        date := fmt.Sprintf("%d/%d/%d", currTime.Year(), currTime.Month(), currTime.Day() - 1)
-        query := fmt.Sprintf("subject:(Thank you for applying) AND after:%s", date)
+        // currTime := time.Now()
+        // date := fmt.Sprintf("%d/%d/%d", currTime.Year(), currTime.Month(), currTime.Day() - 1)
+        query := fmt.Sprintf("subject:Thank you for applying")
 
         user := "me"
         r, err := srv.Users.Messages.List(user).Q(query).Do()
@@ -110,7 +113,7 @@ func main() {
         }
         if len(r.Messages) == 0 {
                 fmt.Println("No messages found.")
-                return
+                //return
         }
         
         // get more details of each email, collect for processing
@@ -153,5 +156,24 @@ func main() {
                 fmt.Printf("Email body: %s\n", currEmail.Body)
         }
 
+        context, _ := zmq4.NewContext()
+        socket, _ := context.NewSocket(zmq4.REQ)
+
+        socket.Connect("tcp://127.0.0.1:5555")
+       
+        for _, email := range emails {
+                jmail, _ := json.Marshal(email)
+                socket.SendBytes(jmail, zmq4.DONTWAIT)
+
+                replyBytes, _ := socket.RecvMessageBytes(0)
+                
+                var reply map[string]interface{}
+                json.Unmarshal(replyBytes[0], &reply)
+
+                fmt.Println("received reply: ", reply)
+        }
+        
+        socket.Close()
+        context.Term()
         // 
 }
